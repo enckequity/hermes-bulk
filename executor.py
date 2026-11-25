@@ -99,7 +99,7 @@ def describe_error(exc: BaseException) -> str:
         return f"{name} (HTTP {status})"
     if isinstance(exc, OSError) and not isinstance(exc, (TimeoutError, ConnectionError)) and exc.strerror:
         return f"{name}: {exc.strerror}"
-    return f"{name} (details are in the Hermes log)"
+    return f"{name} (details are in the gateway log)"
 
 
 def is_transient(exc: BaseException) -> bool:

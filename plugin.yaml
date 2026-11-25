@@ -9,5 +9,13 @@ config_schema:
     description: "Automatic retries per item after a transient model failure. Override per job with --retries."
   max_concurrency:
     type: int
-    default: 16
+    default: 4
     description: "The most items one job may process at once. --concurrency cannot exceed this."
+  default_max_tokens:
+    type: int
+    default: 200000
+    description: "Token limit of a job created without --max-tokens. Enforced by Bulk from reported usage and estimates."
+  allowed_roots:
+    type: list
+    default: []
+    description: "Absolute folders --over may name. Empty = the agent's working directory and <HERMES_HOME>/workspace. A folder that is or contains HERMES_HOME is never allowed."

@@ -168,7 +168,7 @@ class RetryTests(JobTestCase):
         self.assertEqual((first["status"], first["attempts"], first["last_error"]), ("completed", 2, None))
         events = self.store.get_events(job_id, limit=1000)
         failure = next(event for event in events if event["event_type"] == "attempt_failed")
-        self.assertEqual(failure["message"], "q1.txt attempt 1/3: TimeoutError (details are in the Hermes log)")
+        self.assertEqual(failure["message"], "q1.txt attempt 1/3: TimeoutError (details are in the gateway log)")
 
     def test_retries_exhausted_marks_item_failed(self) -> None:
         job_id = self.create_job()
@@ -399,7 +399,7 @@ class TokenLimitTests(JobTestCase):
         self.run_one(job_id)
         self.assertIn("Reserved tokens (estimated, in progress):", captured[0])
         output = self.commands.handle(f"status {job_id}")
-        self.assertIn("Actual tokens (reported by Hermes): 40 in, 2 out", output)
+        self.assertIn("Actual tokens (reported by the provider): 40 in, 2 out", output)
         self.assertIn("not a billing limit", output)
         self.assertNotIn("Reserved tokens", output)
 
