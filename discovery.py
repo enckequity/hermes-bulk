@@ -47,6 +47,9 @@ def discover(source: Path) -> Discovery:
 
 def load_item(source: Path, key: str) -> Item:
     """Re-read one previously discovered item from its source."""
+    # The job stored the fully resolved source; a link swapped into its path since then is refused.
+    if source.resolve() != source:
+        raise ItemProcessingError(f"{source} has moved or is now a link")
     if source.is_dir():
         return Item(key, _read_directory_member(source, key))
     for item in _discover_file(source).items:
@@ -115,8 +118,8 @@ def _key(path: Path, root: Path) -> str:
 
 def _read_directory_member(root: Path, key: str) -> str:
     path = (root / PurePosixPath(key)).resolve()
-    if not path.is_relative_to(root.resolve()):
-        raise ItemProcessingError(f"item {key} is outside {root}")
+    if path != root / PurePosixPath(key) or not path.is_relative_to(root):
+        raise ItemProcessingError(f"item {key} is outside {root} or is now a link")
     try:
         return _read_text(path)
     except DiscoveryError as exc:

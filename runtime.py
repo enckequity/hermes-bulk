@@ -139,8 +139,8 @@ class Runtime:
         """Folders ``--over`` may name, most preferred first (a relative path is resolved against the first).
 
         The ``allowed_roots`` plugin setting, else the agent's working directory and ``<HERMES_HOME>/workspace``.
-        A folder that is the Hermes home or contains it is never allowed: the home holds credentials, env files and
-        every other profile, and a job would send whatever it reads to the model.
+        A folder that is the Hermes home or contains it, or lies inside it outside ``workspace``, is never allowed: the home
+        holds credentials, env files, sessions and memory, and a job would send whatever it reads to the model.
         """
         configured = self._ctx.get_config("allowed_roots", None)
         if isinstance(configured, str):
@@ -151,10 +151,14 @@ class Runtime:
             candidates = [path for path in candidates if path.is_absolute()]
         else:
             candidates = [self.cwd(), home / "workspace"]
+        workspace = (home / "workspace").resolve()
         roots: list[Path] = []
         for candidate in candidates:
             root = candidate.resolve()
             if home.is_relative_to(root) or not root.is_dir() or root in roots:
+                continue
+            # Inside the home only its workspace folder: sessions, memories, state and logs never go to a model.
+            if root.is_relative_to(home) and not root.is_relative_to(workspace):
                 continue
             roots.append(root)
         return roots

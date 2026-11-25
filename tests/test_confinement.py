@@ -92,3 +92,35 @@ class ConfinementTests(JobTestCase):
         job_id = self.create_job()
         text = self.commands.handle(f"status {job_id}") + self.commands.handle("help")
         self.assertNotIn("Hermes", text)
+
+
+class RunTimeTests(ConfinementTests):
+    def test_folder_swapped_for_a_link_after_create_is_refused(self) -> None:
+        job_id = self.create_job()
+        outside = self.tmp / "elsewhere"
+        self.reports.rename(outside)
+        self.reports.symlink_to(outside)
+        self.assertIn("is now a link", self.run_one(job_id))
+
+    def test_member_swapped_for_a_link_after_create_is_refused(self) -> None:
+        job_id = self.create_job()
+        secret = self.tmp / "secret.txt"
+        secret.write_text("secret", encoding="utf-8")
+        member = sorted(self.reports.iterdir())[0]
+        member.unlink()
+        member.symlink_to(secret)
+        self.assertIn("is now a link", self.run_one(job_id))
+
+    def test_home_subfolders_other_than_workspace_are_never_roots(self) -> None:
+        home = self.tmp / "home"
+        (home / "sessions").mkdir(parents=True)
+        (home / "sessions" / "s.json").write_text("{}", encoding="utf-8")
+        commands = self.runtime_with(home, cwd=home / "sessions", settings=None)
+        self.assertIn("no folder is open", commands.handle('"x" --over s.json'))
+        commands = self.runtime_with(home, settings={"allowed_roots": [str(home / "sessions")]})
+        self.assertIn("no folder is open", commands.handle('"x" --over s.json'))
+
+    def test_hidden_source_is_refused(self) -> None:
+        (self.tmp / "work" / ".config").mkdir()
+        (self.tmp / "work" / ".config" / "hosts.yml").write_text("token: x", encoding="utf-8")
+        self.assertIn("is hidden", self.commands.handle('"x" --over .config/hosts.yml'))
