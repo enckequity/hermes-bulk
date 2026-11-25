@@ -310,7 +310,8 @@ Hermes modules must be imported inside functions, because `hermes plugins valida
 Carried by TeamShift (enckequity/teamshift#4654) with these changes, offered upstream:
 
 - `--over` must resolve, after following links, inside an allowed folder: the `allowed_roots` setting, or by default the
-  agent's working directory and `<HERMES_HOME>/workspace`. A folder that is or contains `HERMES_HOME` is never allowed, and
+  agent's working directory and `<HERMES_HOME>/workspace`. A folder that is or contains `HERMES_HOME`, or lies inside it outside
+  `workspace`, is never allowed; hidden paths are refused; a source swapped for a link after the job was created is refused; and
   every file is checked against the host's read deny list (credential stores, env files), so a job cannot send them to a model.
 - A job created without `--max-tokens` gets `default_max_tokens` (200000). `max_concurrency` defaults to 4.
 - Status and error text no longer names the host application.

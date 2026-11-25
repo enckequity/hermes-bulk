@@ -318,8 +318,11 @@ class BulkCommands:
         if not path.is_absolute():
             path = roots[0] / path
         path = path.resolve()
-        if not any(path.is_relative_to(root) for root in roots):
+        root = next((root for root in roots if path.is_relative_to(root)), None)
+        if root is None:
             raise UsageError(f"--over must be inside {' or '.join(str(root) for root in roots)}")
+        if any(part.startswith(".") for part in path.relative_to(root).parts):
+            raise UsageError(f"{value} is hidden; Bulk does not read hidden files or folders")
         if self._runtime.read_block(str(path)):
             raise UsageError(f"{value} is a protected file and cannot be read")
         return path
