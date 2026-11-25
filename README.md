@@ -100,7 +100,7 @@ Start it with: /bulk run 29b74c4db08b
 Job 29b74c4db08b: running
 State: processing
 Items: 12/20 completed, 0 failed, 5 pending, 3 running
-Actual tokens (reported by Hermes): 2016 in, 334 out
+Actual tokens (reported by the provider): 2016 in, 334 out
 Estimated tokens for the whole job: 8383
 Concurrency: up to 3 items at once
 ```
@@ -183,13 +183,13 @@ plugins:
     bulk:
       settings:
         max_retries: 2
-        max_concurrency: 16
+        max_concurrency: 4
 ```
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `max_retries` | 2 | Default automatic retries per item. `--retries` overrides it for one job. |
-| `max_concurrency` | 16 | The most items one job may process at once. Lowering it also applies to existing jobs. |
+| `max_concurrency` | 4 | The most items one job may process at once. Lowering it also applies to existing jobs. |
 
 ## Reliability
 
