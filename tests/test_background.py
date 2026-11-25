@@ -71,6 +71,12 @@ class BackgroundTestCase(JobTestCase):
         self.llm.respond = gate
         return gate
 
+    def raise_cap(self, cap: int = 16) -> None:
+        """Run on a runtime whose max_concurrency setting allows more than the default 4."""
+        self.runtime = self.make_runtime(self.llm, settings={"max_concurrency": cap})
+        self.addCleanup(self.runtime.close)
+        self.commands = BulkCommands(self.runtime)
+
     def create_many(self, count: int, options: str = "") -> str:
         source = self.tmp / "work" / "many"
         source.mkdir(exist_ok=True)
@@ -183,7 +189,7 @@ class ConcurrencyTests(BackgroundTestCase):
         self.assertEqual(gate.peak, 4)
 
     def test_upper_bound_is_configurable_and_enforced(self) -> None:
-        self.assertIn("at most 16", self.commands.handle('"x" --over reports --concurrency 17'))
+        self.assertIn("at most 4", self.commands.handle('"x" --over reports --concurrency 5'))
         runtime = self.make_runtime(self.llm, settings={"max_concurrency": 2})
         self.addCleanup(runtime.close)
         commands = BulkCommands(runtime)
@@ -191,7 +197,7 @@ class ConcurrencyTests(BackgroundTestCase):
         for bad in ("many", 0, None):
             other = self.make_runtime(self.llm, settings={"max_concurrency": bad})
             self.addCleanup(other.close)
-            self.assertEqual(other.max_concurrency(), 16)
+            self.assertEqual(other.max_concurrency(), 4)
 
     def test_lowered_bound_applies_to_an_existing_job(self) -> None:
         job_id = self.create_many(6, "--concurrency 4")
@@ -206,6 +212,7 @@ class ConcurrencyTests(BackgroundTestCase):
         self.assertEqual(gate.peak, 2)
 
     def test_no_item_is_processed_twice(self) -> None:
+        self.raise_cap()
         job_id = self.create_many(60, "--concurrency 8")
         self.run_job(job_id)
         self.wait_until_idle(job_id)
@@ -339,6 +346,7 @@ class TokenLimitTests(BackgroundTestCase):
     def test_concurrent_reservations_never_exceed_the_limit(self) -> None:
         estimate_job = self.create_many(10)
         estimate = self.items(estimate_job)[0]["estimated_tokens"]
+        self.raise_cap()
         job_id = self.create_many(10, f"--max-tokens {estimate * 2} --concurrency 5")
         gate = self.gate()
         self.run_job(job_id)
@@ -576,7 +584,7 @@ class StatusTests(BackgroundTestCase):
         )
         self.addCleanup(worker.kill)
         self.assertEqual(worker.stdout.readline().strip(), "claimed")
-        self.assertIn("processing in another Hermes process", self.status(job_id))
+        self.assertIn("processing in another process", self.status(job_id))
         worker.communicate(timeout=60)
 
     def test_job_list_marks_active_jobs(self) -> None:

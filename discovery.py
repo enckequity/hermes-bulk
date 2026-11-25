@@ -55,7 +55,18 @@ def load_item(source: Path, key: str) -> Item:
     raise ItemProcessingError(f"item {key} no longer exists in {source}")
 
 
+def _read_block(path: str):
+    """The host's read deny list (credential stores, project env files, device files), when it provides one."""
+    try:
+        from agent.file_safety import get_read_block_error
+    except Exception:
+        return None
+    return get_read_block_error(path)
+
+
 def _read_text(path: Path) -> str:
+    if _read_block(str(path)):
+        raise DiscoveryError(f"{path.name} is a protected file and cannot be read")
     try:
         return path.read_bytes().decode("utf-8-sig")
     except UnicodeDecodeError as exc:

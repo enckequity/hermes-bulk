@@ -304,3 +304,13 @@ Hermes modules must be imported inside functions, because `hermes plugins valida
 ## License
 
 [MIT](LICENSE) © 2026 Sniperchief
+
+## TeamShift fork
+
+Carried by TeamShift (enckequity/teamshift#4654) with these changes, offered upstream:
+
+- `--over` must resolve, after following links, inside an allowed folder: the `allowed_roots` setting, or by default the
+  agent's working directory and `<HERMES_HOME>/workspace`. A folder that is or contains `HERMES_HOME` is never allowed, and
+  every file is checked against the host's read deny list (credential stores, env files), so a job cannot send them to a model.
+- A job created without `--max-tokens` gets `default_max_tokens` (200000). `max_concurrency` defaults to 4.
+- Status and error text no longer names the host application.

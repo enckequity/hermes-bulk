@@ -49,7 +49,7 @@ class SliceTests(JobTestCase):
     def test_full_item_content_reaches_the_model(self) -> None:
         body = "y" * 500_000 + "TAIL"
         (self.reports / "q1.txt").write_text(body, encoding="utf-8")
-        job_id = self.create_job()
+        job_id = self.create_job("--max-tokens 10000000")  # above the 200000 default limit
         self.run_one(job_id)
         self.assertIn(body, self.llm.calls[0]["messages"][1]["content"])
 
@@ -76,7 +76,7 @@ class SliceTests(JobTestCase):
         self.assertNotIn("sk-secret", self.commands.handle(f"status {job_id}"))
         first, second = self.items(job_id)
         self.assertEqual((first["status"], first["attempts"]), ("failed", 1))
-        self.assertEqual(first["last_error"], "ValueError (details are in the Hermes log)")
+        self.assertEqual(first["last_error"], "ValueError (details are in the gateway log)")
         self.assertIsNone(first["output_path"])
         self.assertEqual(second["status"], "pending")
         self.assertEqual(self.job(job_id)["failed_items"], 1)

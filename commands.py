@@ -35,11 +35,12 @@ USAGE = """Usage:
       Write all of a job's results into one file. Makes no model calls.
 
 --max-tokens is enforced by Bulk from reported usage and estimates. It is not a
-provider billing limit. --retries is the number of automatic retries per item.
+provider billing limit. A job created without it gets the default_max_tokens setting
+(200000 unless configured). --over must name a path inside the allowed folders. --retries is the number of automatic retries per item.
 --concurrency is how many items run at once (default 4). When the provider rate
 limits Bulk, all workers wait and try again, and --retries 0 turns this off.
 
-Background work runs inside the Hermes gateway and stops if the gateway stops. Run
+Background work runs inside the gateway and stops if the gateway stops. Run
 /bulk run <job_id> again after a restart to continue."""
 
 
@@ -79,7 +80,7 @@ class BulkCommands:
             return f"Bulk: {exc}"
         except Exception as exc:  # handler exceptions would propagate into the session
             logger.exception("Bulk command failed")
-            return f"Bulk: internal error ({type(exc).__name__}). See the Hermes log."
+            return f"Bulk: internal error ({type(exc).__name__}). See the gateway log."
 
     def _dispatch(self, tokens: list[str]) -> str:
         if not tokens or tokens[0] == "help":
@@ -130,7 +131,11 @@ class BulkCommands:
         created = self._manager().create_job(
             instruction,
             self._resolve(options["--over"]),
-            max_tokens=_number("--max-tokens", max_tokens, int, 1) if max_tokens is not None else None,
+            max_tokens=(
+                _number("--max-tokens", max_tokens, int, 1)
+                if max_tokens is not None
+                else self._runtime.default_max_tokens()
+            ),
             max_retries=(
                 _number("--retries", retries, int, 0)
                 if retries is not None
@@ -251,7 +256,7 @@ class BulkCommands:
             waiting = manager.rate_limit.remaining()
             return f"processing (rate limited by the provider, waiting {waiting:.0f}s)" if waiting else "processing"
         if running and manager.claims_held_by_live_process(job_id):
-            return "processing in another Hermes process"
+            return "processing in another process"
         if running or any(item["attempts"] for item in items):
             return f"awaiting recovery (no worker is running). Continue with: /bulk run {job_id}"
         return f"not started. Start with: /bulk run {job_id}"
@@ -278,7 +283,7 @@ class BulkCommands:
             f"Source: {job['source']}",
             f"Items: {job['completed_items']}/{job['total_items']} completed, "
             f"{job['failed_items']} failed, {pending} pending, {running} running",
-            f"Actual tokens (reported by Hermes): {tokens_in} in, {tokens_out} out",
+            f"Actual tokens (reported by the provider): {tokens_in} in, {tokens_out} out",
             f"Estimated tokens for the whole job: {usage['estimated_total']}",
         ]
         if usage["unreported"]:
@@ -305,7 +310,16 @@ class BulkCommands:
         return self._runtime.manager()
 
     def _resolve(self, value: str) -> Path:
+        """Resolve --over inside an allowed folder; symbolic links are followed before the check."""
+        roots = self._runtime.allowed_roots()
+        if not roots:
+            raise UsageError("no folder is open to Bulk here. Set the allowed_roots plugin setting.")
         path = Path(value).expanduser()
         if not path.is_absolute():
-            path = self._runtime.cwd() / path
-        return path.resolve()
+            path = roots[0] / path
+        path = path.resolve()
+        if not any(path.is_relative_to(root) for root in roots):
+            raise UsageError(f"--over must be inside {' or '.join(str(root) for root in roots)}")
+        if self._runtime.read_block(str(path)):
+            raise UsageError(f"{value} is a protected file and cannot be read")
+        return path
